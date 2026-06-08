@@ -1,0 +1,59 @@
+export interface MigrationCounts {
+  sunriseBorrowers: number;
+  metroBorrowers: number;
+  digitalBorrowers: number;
+  quarantineBorrowers: number;
+  conversations: number;
+  payments: number;
+  users: number;
+  legacyLogs: number;
+  assignmentFixes: number;
+}
+
+const EXPECTED = {
+  sunriseBorrowers: 704,
+  metroBorrowers: 803,
+  digitalBorrowers: 501,
+  quarantineBorrowers: 5,
+  conversations: 3305,
+  payments: 1593,
+  users: 18,
+  legacyLogs: 2512,
+  assignmentFixesMin: 11,
+};
+
+export async function validateMigrationCounts(counts: MigrationCounts): Promise<void> {
+  const errors: string[] = [];
+
+  if (counts.sunriseBorrowers !== EXPECTED.sunriseBorrowers) {
+    errors.push(`sunrise borrowers: expected ${EXPECTED.sunriseBorrowers}, got ${counts.sunriseBorrowers}`);
+  }
+  if (counts.metroBorrowers !== EXPECTED.metroBorrowers) {
+    errors.push(`metro borrowers: expected ${EXPECTED.metroBorrowers}, got ${counts.metroBorrowers}`);
+  }
+  if (counts.digitalBorrowers !== EXPECTED.digitalBorrowers) {
+    errors.push(`digital borrowers: expected ${EXPECTED.digitalBorrowers}, got ${counts.digitalBorrowers}`);
+  }
+  if (counts.quarantineBorrowers !== EXPECTED.quarantineBorrowers) {
+    errors.push(`quarantine borrowers: expected ${EXPECTED.quarantineBorrowers}, got ${counts.quarantineBorrowers}`);
+  }
+  if (counts.conversations !== EXPECTED.conversations) {
+    errors.push(`conversations: expected ${EXPECTED.conversations}, got ${counts.conversations}`);
+  }
+  if (counts.payments !== EXPECTED.payments) {
+    errors.push(`payments: expected ${EXPECTED.payments}, got ${counts.payments}`);
+  }
+  if (counts.users !== EXPECTED.users) {
+    errors.push(`users: expected ${EXPECTED.users}, got ${counts.users}`);
+  }
+  if (counts.legacyLogs !== EXPECTED.legacyLogs) {
+    errors.push(`legacy logs: expected ${EXPECTED.legacyLogs}, got ${counts.legacyLogs}`);
+  }
+  if (counts.assignmentFixes < EXPECTED.assignmentFixesMin) {
+    errors.push(`assignment fixes: expected at least ${EXPECTED.assignmentFixesMin}, got ${counts.assignmentFixes}`);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Migration validation failed:\n${errors.join('\n')}`);
+  }
+}
