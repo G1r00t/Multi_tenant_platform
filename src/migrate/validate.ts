@@ -22,6 +22,30 @@ const EXPECTED = {
   assignmentFixesMin: 11,
 };
 
+export async function validateNoPlaintextPii(): Promise<void> {
+  const { getMongoClient } = await import('../db/client.js');
+  const { CANONICAL_TENANTS, TENANT_SLUGS } = await import('../authz/types.js');
+  const { tenantDbName, slugForTenant } = await import('./normalize.js');
+
+  const client = await getMongoClient();
+  const plainFields = ['phone', 'aadhaar', 'bankAccount', 'pan'];
+  const errors: string[] = [];
+
+  for (const tenantId of CANONICAL_TENANTS) {
+    const db = client.db(tenantDbName(slugForTenant(tenantId), 1));
+    for (const field of plainFields) {
+      const count = await db.collection('borrowers').countDocuments({ [field]: { $exists: true } });
+      if (count > 0) {
+        errors.push(`${TENANT_SLUGS[tenantId]}: ${count} borrowers still have plaintext ${field}`);
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Plaintext PII validation failed:\n${errors.join('\n')}`);
+  }
+}
+
 export async function validateMigrationCounts(counts: MigrationCounts): Promise<void> {
   const errors: string[] = [];
 

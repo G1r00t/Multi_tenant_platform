@@ -17,7 +17,10 @@ import {
   tenantDbName,
   type SeedBorrower,
 } from './normalize.js';
-import { validateMigrationCounts } from './validate.js';
+import { validateMigrationCounts, validateNoPlaintextPii } from './validate.js';
+import { TokenService } from '../pii/token-service.js';
+import { ensureTenantDek } from '../pii/vault.js';
+import type { BorrowerPlaintextPii, BorrowerTokens } from '../pii/fields.js';
 
 const BATCH_SIZE = 1000;
 
@@ -241,16 +244,44 @@ export async function runMigration(): Promise<void> {
     byTenant[tenantId].push(rest);
   }
 
+  const tokenService = new TokenService();
+  const vault = client.db(VAULT_DB);
+  for (const tenantId of CANONICAL_TENANTS) {
+    await ensureTenantDek(tenantId, vault);
+  }
+
+  const tokenizedByTenant: Record<CanonicalTenantId, Record<string, unknown>[]> = {
+    client_sunrise_001: [],
+    client_metro_002: [],
+    client_digital_003: [],
+  };
+
+  const borrowerPiiMap = new Map<
+    string,
+    { plaintextPii: BorrowerPlaintextPii; tokens: BorrowerTokens }
+  >();
+
+  for (const tenantId of CANONICAL_TENANTS) {
+    for (const borrower of byTenant[tenantId]) {
+      const { record, plaintextPii, tokens } = await tokenService.tokenizeBorrowerRecord(
+        tenantId,
+        borrower,
+      );
+      tokenizedByTenant[tenantId].push(record);
+      borrowerPiiMap.set(String(borrower.borrowerId), { plaintextPii, tokens });
+    }
+  }
+
   for (const tenantId of CANONICAL_TENANTS) {
     const db = client.db(tenantDbName(slugForTenant(tenantId), 1));
-    await bulkInsert(db, 'borrowers', byTenant[tenantId]);
+    await bulkInsert(db, 'borrowers', tokenizedByTenant[tenantId]);
   }
 
   await bulkInsert(system, 'quarantine_borrowers', partitioned.quarantine);
 
   const borrowerTenantMap = new Map<string, CanonicalTenantId>();
   for (const tenantId of CANONICAL_TENANTS) {
-    for (const b of byTenant[tenantId]) {
+    for (const b of tokenizedByTenant[tenantId]) {
       borrowerTenantMap.set(String(b.borrowerId), tenantId);
     }
   }
@@ -265,6 +296,15 @@ export async function runMigration(): Promise<void> {
     const tenantId = borrowerTenantMap.get(String(convo.borrowerId));
     if (!tenantId) continue;
     const { clientId: _c, ...rest } = convo as Record<string, unknown> & { clientId?: string };
+    const piiEntry = borrowerPiiMap.get(String(convo.borrowerId));
+    if (piiEntry && Array.isArray(rest.messages)) {
+      rest.messages = (rest.messages as Array<{ sender: string; text: string; timestamp: string }>).map(
+        (msg) => ({
+          ...msg,
+          text: tokenService.scrubConversationText(msg.text, piiEntry.plaintextPii, piiEntry.tokens),
+        }),
+      );
+    }
     conversationsByTenant[tenantId].push(rest);
   }
 
@@ -288,9 +328,9 @@ export async function runMigration(): Promise<void> {
   }
 
   await validateMigrationCounts({
-    sunriseBorrowers: byTenant.client_sunrise_001.length,
-    metroBorrowers: byTenant.client_metro_002.length,
-    digitalBorrowers: byTenant.client_digital_003.length,
+    sunriseBorrowers: tokenizedByTenant.client_sunrise_001.length,
+    metroBorrowers: tokenizedByTenant.client_metro_002.length,
+    digitalBorrowers: tokenizedByTenant.client_digital_003.length,
     quarantineBorrowers: partitioned.quarantine.length,
     conversations: conversations.length,
     payments: payments.length,
@@ -298,6 +338,8 @@ export async function runMigration(): Promise<void> {
     legacyLogs: accessLogs.length,
     assignmentFixes: fixes.length,
   });
+
+  await validateNoPlaintextPii();
 
   invalidateRegistryCache();
 
