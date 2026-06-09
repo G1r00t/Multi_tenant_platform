@@ -1,0 +1,72 @@
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrator:
+    build: .
+    command: ["node", "dist/index-migrate.js"]
+    environment: &app-env
+      MONGO_URI: mongodb://mongo:27017
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: local-dev-jwt-secret-min-16-chars
+      MASTER_KEY: "0123456789abcdef0123456789abcdef"
+      SEED_DATA_PATH: /app/seed-data
+      DEFAULT_PASSWORD: changeme
+      NODE_ENV: development
+      MONGO_MAX_POOL_SIZE: "8"
+      SERVICE_NAME: migrator
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api:
+    build: .
+    command: ["node", "dist/index-api.js"]
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *app-env
+      API_PORT: "3000"
+      MONGO_MAX_POOL_SIZE: "6"
+      SERVICE_NAME: api
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    command: ["node", "dist/index-worker.js"]
+    environment:
+      <<: *app-env
+      MONGO_MAX_POOL_SIZE: "4"
+      SERVICE_NAME: worker
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
