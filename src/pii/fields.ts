@@ -47,6 +47,10 @@ export function validatePan(value: string): boolean {
   return /^[A-Z]{5}\d{4}[A-Z]$/.test(normalizePan(value));
 }
 
+export function validatePanToken(value: string): boolean {
+  return validatePan(value);
+}
+
 export function validateNumericPii(value: string, field: NumericPiiField): boolean {
   const normalized = normalizeNumericPii(value, field);
 
