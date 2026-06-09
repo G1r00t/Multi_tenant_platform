@@ -63,6 +63,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
 
 ## Local development (without Docker)
 
+Requires **Node.js 20+** (Fastify 5 needs `diagnostics.tracingChannel`). If you use nvm, run `nvm use` in the repo root (see `.nvmrc`).
+
 ```bash
 npm install
 npm run build
@@ -77,7 +79,10 @@ MONGO_MAX_POOL_SIZE=6 SERVICE_NAME=api node dist/index-api.js
 
 ## Tests
 
+Requires **Node.js 20+** for local test runs (`npm test`). Docker-based setup already uses Node 20.
+
 ```bash
+nvm use    # optional, if you use nvm
 npm test
 ```
 
