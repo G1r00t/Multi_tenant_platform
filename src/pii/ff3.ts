@@ -105,7 +105,11 @@ function derivePanDigitPermutation(
   tweakHex: string,
 ): { a: number; b: number; aInv: number } {
   const hash = createHash('sha256').update(`${dekHex}:${tweakHex}:pan-digits`).digest();
+  // Must stay odd (10000 = 2^4 × 5^4); incrementing by 2 from an even a never terminates.
   let a = (hash.readUInt32BE(0) % 4_000) + 1_001;
+  if (a % 2 === 0) {
+    a += 1;
+  }
   while (gcd(a, PAN_DIGIT_MOD) !== 1) {
     a += 2;
   }
