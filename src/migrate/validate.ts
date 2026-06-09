@@ -10,7 +10,7 @@ export interface MigrationCounts {
   assignmentFixes: number;
 }
 
-const EXPECTED = {
+export const EXPECTED_MIGRATION_COUNTS = {
   sunriseBorrowers: 704,
   metroBorrowers: 803,
   digitalBorrowers: 501,
@@ -18,9 +18,15 @@ const EXPECTED = {
   conversations: 3305,
   payments: 1593,
   users: 18,
+  clients: 3,
   legacyLogs: 2512,
+  registryTenants: 3,
   assignmentFixesMin: 11,
-};
+  totalBorrowers: 2013,
+  maxDurationMs: 60_000,
+} as const;
+
+const EXPECTED = EXPECTED_MIGRATION_COUNTS;
 
 export async function validateNoPlaintextPii(): Promise<void> {
   const { getMongoClient } = await import('../db/client.js');
