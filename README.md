@@ -12,7 +12,7 @@ docker compose up --build
 
 No manual steps. All environment variables are set in `docker-compose.yml` with local dev defaults.
 
-Default login password for all seed users: **`changeme`**
+Default login password for all seed users: `**changeme**`
 
 ## Verify the system
 
@@ -80,4 +80,6 @@ MONGO_MAX_POOL_SIZE=6 SERVICE_NAME=api node dist/index-api.js
 ```bash
 npm test
 ```
-# Multi_tenant_platform
+
+
+

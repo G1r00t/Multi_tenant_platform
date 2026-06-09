@@ -2,3 +2,8 @@ node_modules/
 dist/
 .env
 *.log
+docs/
+CONSTRAINTS.md
+ARCHITECTURE.md
+DISCLAIMER.md
+spec.md
