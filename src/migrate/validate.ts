@@ -34,7 +34,7 @@ export async function validateNoPlaintextPii(): Promise<void> {
   const { tenantDbName, slugForTenant } = await import('./normalize.js');
 
   const client = await getMongoClient();
-  const plainFields = ['phone', 'aadhaar', 'bankAccount', 'pan'];
+  const plainFields = ['phone', 'aadhaar', 'bankAccount', 'pan', 'email', 'fullName', 'firstName', 'lastName'];
   const errors: string[] = [];
 
   for (const tenantId of CANONICAL_TENANTS) {

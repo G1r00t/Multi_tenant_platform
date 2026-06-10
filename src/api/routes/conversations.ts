@@ -5,6 +5,9 @@ import { loadBorrowerWithScope } from '../../authz/scope.js';
 import { getTokenService } from '../../pii/token-service.js';
 import {
   NUMERIC_PII_FIELDS,
+  PAN_TOKEN_FIELD,
+  TEXT_PII_FIELDS,
+  TEXT_TOKEN_FIELD_NAMES,
   TOKEN_FIELD_NAMES,
   type BorrowerPlaintextPii,
   type BorrowerTokens,
@@ -36,6 +39,11 @@ function borrowerTokensFromDoc(doc: Record<string, unknown>): BorrowerTokens {
     phoneToken: doc.phoneToken as string | undefined,
     aadhaarToken: doc.aadhaarToken as string | undefined,
     bankAccountToken: doc.bankAccountToken as string | undefined,
+    panToken: doc.panToken as string | undefined,
+    emailToken: doc.emailToken as string | undefined,
+    fullNameToken: doc.fullNameToken as string | undefined,
+    firstNameToken: doc.firstNameToken as string | undefined,
+    lastNameToken: doc.lastNameToken as string | undefined,
   };
 }
 
@@ -51,6 +59,17 @@ async function borrowerPlaintextPii(
     const token = doc[TOKEN_FIELD_NAMES[field]] as string | undefined;
     if (!token) continue;
     plaintext[field] = await tokenService.detokenizeField(clientId, borrowerId, field, token);
+  }
+
+  const panToken = doc[PAN_TOKEN_FIELD] as string | undefined;
+  if (panToken) {
+    plaintext.pan = await tokenService.detokenizePan(clientId, borrowerId, panToken);
+  }
+
+  for (const field of TEXT_PII_FIELDS) {
+    const token = doc[TEXT_TOKEN_FIELD_NAMES[field]] as string | undefined;
+    if (!token) continue;
+    plaintext[field] = await tokenService.detokenizeTextField(clientId, borrowerId, field, token);
   }
 
   return plaintext;

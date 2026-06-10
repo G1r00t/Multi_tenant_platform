@@ -75,9 +75,9 @@ describe.skipIf(!mongoUp)('compliance rules (docs/compliance-rules.md)', () => {
         outstandingAmount: 0,
         phoneToken: '9999999999',
         aadhaarToken: '123456789012',
-        email: 'erasure-test@example.com',
-        firstName: 'Erase',
-        lastName: 'Me',
+        emailToken: 'erasure@example.com',
+        firstNameToken: 'Erase',
+        lastNameToken: 'Me',
       });
 
       await processErasure({
@@ -92,7 +92,8 @@ describe.skipIf(!mongoUp)('compliance rules (docs/compliance-rules.md)', () => {
       expect(borrower?.status).toBe('closed');
       expect(borrower?.dpdBucket).toBe('180+');
       expect(borrower?.phoneToken).toBeUndefined();
-      expect(borrower?.email).toBeUndefined();
+      expect(borrower?.emailToken).toBeUndefined();
+      expect(borrower?.firstNameToken).toBeUndefined();
       expect(tweak).toBeNull();
     });
   });

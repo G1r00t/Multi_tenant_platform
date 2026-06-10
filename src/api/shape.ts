@@ -3,8 +3,12 @@ import type { TokenService } from '../pii/token-service.js';
 import {
   NUMERIC_PII_FIELDS,
   PLAIN_FIELD_NAMES,
+  TEXT_PII_FIELDS,
+  TEXT_PLAIN_FIELD_NAMES,
+  TEXT_TOKEN_FIELD_NAMES,
   TOKEN_FIELD_NAMES,
   type NumericPiiField,
+  type TextPiiField,
 } from '../pii/fields.js';
 
 export interface BorrowerDoc {
@@ -14,10 +18,10 @@ export interface BorrowerDoc {
   aadhaarToken?: string;
   bankAccountToken?: string;
   panToken?: string;
-  firstName?: string;
-  lastName?: string;
-  fullName?: string;
-  email?: string;
+  emailToken?: string;
+  firstNameToken?: string;
+  lastNameToken?: string;
+  fullNameToken?: string;
   [key: string]: unknown;
 }
 
@@ -111,6 +115,60 @@ async function resolvePanField(
   }
 }
 
+async function resolveNameField(
+  role: Role,
+  tokenService: TokenService,
+  clientId: string,
+  borrowerId: string,
+  field: Exclude<TextPiiField, 'email'>,
+  token: string | undefined,
+): Promise<{ key: string; value: string } | null> {
+  if (!token) return null;
+  const plainKey = TEXT_PLAIN_FIELD_NAMES[field];
+
+  switch (role) {
+    case 'admin':
+    case 'debt-counselor':
+      return {
+        key: plainKey,
+        value: await tokenService.detokenizeTextField(clientId, borrowerId, field, token),
+      };
+    case 'engineer':
+      return { key: plainKey, value: maskToken(token) };
+    default:
+      return null;
+  }
+}
+
+async function resolveEmailField(
+  role: Role,
+  tokenService: TokenService,
+  clientId: string,
+  borrowerId: string,
+  token: string | undefined,
+): Promise<{ key: string; value: string } | null> {
+  if (!token) return null;
+
+  switch (role) {
+    case 'admin':
+      return {
+        key: 'email',
+        value: await tokenService.detokenizeTextField(clientId, borrowerId, 'email', token),
+      };
+    case 'debt-counselor':
+      return {
+        key: 'email',
+        value: maskEmail(
+          await tokenService.detokenizeTextField(clientId, borrowerId, 'email', token),
+        ),
+      };
+    case 'engineer':
+      return { key: 'email', value: maskToken(token) };
+    default:
+      return null;
+  }
+}
+
 export async function shapeBorrower(
   doc: BorrowerDoc,
   role: Role,
@@ -122,7 +180,9 @@ export async function shapeBorrower(
 
   for (const [key, value] of Object.entries(doc)) {
     if (key.endsWith('Token')) continue;
-    if (['phone', 'aadhaar', 'bankAccount', 'email', 'pan'].includes(key)) continue;
+    if (['phone', 'aadhaar', 'bankAccount', 'email', 'pan', ...TEXT_PII_FIELDS].includes(key)) {
+      continue;
+    }
     result[key] = value;
   }
 
@@ -159,16 +219,27 @@ export async function shapeBorrower(
   const pan = await resolvePanField(role, tokenService, clientId, borrowerId, doc.panToken);
   if (pan) result[pan.key] = pan.value;
 
-  if (role === 'admin') {
-    if (doc.email) result.email = doc.email;
-  } else if (role === 'debt-counselor' && doc.email) {
-    result.email = maskEmail(doc.email);
-  } else if (role === 'engineer' && doc.email) {
-    result.email = maskToken(doc.email);
+  const email = await resolveEmailField(role, tokenService, clientId, borrowerId, doc.emailToken);
+  if (email) result[email.key] = email.value;
+
+  for (const field of ['fullName', 'firstName', 'lastName'] as const) {
+    const tokenKey = TEXT_TOKEN_FIELD_NAMES[field];
+    const resolved = await resolveNameField(
+      role,
+      tokenService,
+      clientId,
+      borrowerId,
+      field,
+      doc[tokenKey] as string | undefined,
+    );
+    if (resolved) result[resolved.key] = resolved.value;
   }
 
   for (const field of NUMERIC_PII_FIELDS) {
     delete result[TOKEN_FIELD_NAMES[field]];
+  }
+  for (const field of TEXT_PII_FIELDS) {
+    delete result[TEXT_TOKEN_FIELD_NAMES[field]];
   }
 
   return result;

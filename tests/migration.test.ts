@@ -138,11 +138,30 @@ describe.sequential.skipIf(!mongoUp)('migration (spec 3.5)', () => {
       .collection('borrowers')
       .findOne(
         { borrowerId: SAMPLE_BORROWER_ID },
-        { projection: { borrowerId: 1, firstName: 1, phoneToken: 1, phone: 1, panToken: 1, pan: 1 } },
+        {
+          projection: {
+            borrowerId: 1,
+            firstName: 1,
+            firstNameToken: 1,
+            fullName: 1,
+            fullNameToken: 1,
+            email: 1,
+            emailToken: 1,
+            phoneToken: 1,
+            phone: 1,
+            panToken: 1,
+            pan: 1,
+          },
+        },
       );
 
     expect(sample).toBeTruthy();
-    expect(sample!.firstName).toBe('Pankaj');
+    expect(sample!.firstName).toBeUndefined();
+    expect(sample!.firstNameToken).toBeTruthy();
+    expect(sample!.fullName).toBeUndefined();
+    expect(sample!.fullNameToken).toBeTruthy();
+    expect(sample!.email).toBeUndefined();
+    expect(sample!.emailToken).toBeTruthy();
     expect(sample!.phoneToken).toBeTruthy();
     expect(sample!.phone).toBeUndefined();
     expect(sample!.pan).toBeUndefined();
@@ -163,7 +182,8 @@ describe.sequential.skipIf(!mongoUp)('migration (spec 3.5)', () => {
 
     const restored = await sunriseDb.collection('borrowers').findOne({ borrowerId: SAMPLE_BORROWER_ID });
     expect(restored).toBeTruthy();
-    expect(restored!.firstName).toBe('Pankaj');
+    expect(restored!.firstName).toBeUndefined();
+    expect(restored!.firstNameToken).toBeTruthy();
 
     const snapshot = await readMigrationSnapshot();
     expectSnapshotMatchesExpected(snapshot);

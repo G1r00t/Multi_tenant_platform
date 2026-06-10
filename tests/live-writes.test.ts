@@ -74,6 +74,8 @@ describe.skipIf(!mongoUp)('live write paths (post-migration API)', () => {
     expect(stored).toBeTruthy();
     expect(stored!.phoneToken).toMatch(/^\d{10}$/);
     expect(stored!.phone).toBeUndefined();
+    expect(stored!.firstName).toBeUndefined();
+    expect(stored!.firstNameToken).toBeTruthy();
     expect(stored!.aadhaarToken).toMatch(/^\d{12}$/);
     expect(stored!.panToken).toMatch(/^[A-Z]{5}\d{4}[A-Z]$/);
     expect(stored!.assignedTo).toBe(COUNSELOR_USER_ID);

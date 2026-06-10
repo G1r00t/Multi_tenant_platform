@@ -17,6 +17,33 @@ export const PLAIN_FIELD_NAMES: Record<NumericPiiField, string> = {
 export const PAN_TOKEN_FIELD = 'panToken';
 export const PAN_PLAIN_FIELD = 'pan';
 
+export type TextPiiField = 'email' | 'fullName' | 'firstName' | 'lastName';
+
+export const TEXT_PII_FIELDS: TextPiiField[] = ['email', 'fullName', 'firstName', 'lastName'];
+
+export const TEXT_TOKEN_FIELD_NAMES: Record<TextPiiField, string> = {
+  email: 'emailToken',
+  fullName: 'fullNameToken',
+  firstName: 'firstNameToken',
+  lastName: 'lastNameToken',
+};
+
+export const TEXT_PLAIN_FIELD_NAMES: Record<TextPiiField, string> = {
+  email: 'email',
+  fullName: 'fullName',
+  firstName: 'firstName',
+  lastName: 'lastName',
+};
+
+export const EMAIL_TOKEN_FIELD = TEXT_TOKEN_FIELD_NAMES.email;
+export const EMAIL_PLAIN_FIELD = TEXT_PLAIN_FIELD_NAMES.email;
+export const FULL_NAME_TOKEN_FIELD = TEXT_TOKEN_FIELD_NAMES.fullName;
+export const FULL_NAME_PLAIN_FIELD = TEXT_PLAIN_FIELD_NAMES.fullName;
+export const FIRST_NAME_TOKEN_FIELD = TEXT_TOKEN_FIELD_NAMES.firstName;
+export const FIRST_NAME_PLAIN_FIELD = TEXT_PLAIN_FIELD_NAMES.firstName;
+export const LAST_NAME_TOKEN_FIELD = TEXT_TOKEN_FIELD_NAMES.lastName;
+export const LAST_NAME_PLAIN_FIELD = TEXT_PLAIN_FIELD_NAMES.lastName;
+
 export const BANK_ACCOUNT_MIN_LENGTH = 9;
 export const BANK_ACCOUNT_MAX_LENGTH = 18;
 
@@ -51,6 +78,33 @@ export function validatePanToken(value: string): boolean {
   return validatePan(value);
 }
 
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function validateEmail(value: string): boolean {
+  const email = normalizeEmail(value);
+  return /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email);
+}
+
+/** Tokenized emails may contain digits in the TLD after FF3 encryption. */
+export function validateEmailToken(value: string): boolean {
+  const email = normalizeEmail(value);
+  return /^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z0-9]{2,}$/.test(email);
+}
+
+export function normalizeName(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+export function validateName(value: string): boolean {
+  return /^[A-Za-z]+(?: [A-Za-z]+)*$/.test(normalizeName(value));
+}
+
+export function validateNameToken(value: string): boolean {
+  return validateName(value);
+}
+
 export function validateNumericPii(value: string, field: NumericPiiField): boolean {
   const normalized = normalizeNumericPii(value, field);
 
@@ -72,6 +126,10 @@ export interface BorrowerPlaintextPii {
   aadhaar?: string;
   bankAccount?: string;
   pan?: string;
+  email?: string;
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface BorrowerTokens {
@@ -79,6 +137,10 @@ export interface BorrowerTokens {
   aadhaarToken?: string;
   bankAccountToken?: string;
   panToken?: string;
+  emailToken?: string;
+  fullNameToken?: string;
+  firstNameToken?: string;
+  lastNameToken?: string;
 }
 
 export function buildScrubTargets(
@@ -109,6 +171,22 @@ export function buildScrubTargets(
   if (plaintext.pan && tokens.panToken) {
     targets.push({ search: plaintext.pan, replace: tokens.panToken });
     targets.push({ search: plaintext.pan.toLowerCase(), replace: tokens.panToken });
+  }
+
+  for (const field of TEXT_PII_FIELDS) {
+    const plain = plaintext[field];
+    const tokenKey = TEXT_TOKEN_FIELD_NAMES[field];
+    const token = tokens[tokenKey as keyof BorrowerTokens];
+    if (!plain || !token) continue;
+
+    targets.push({ search: plain, replace: token });
+
+    if (field === 'email') {
+      const normalized = normalizeEmail(plain);
+      if (normalized !== plain) {
+        targets.push({ search: normalized, replace: token });
+      }
+    }
   }
 
   return targets.sort((a, b) => b.search.length - a.search.length);

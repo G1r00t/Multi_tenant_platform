@@ -5,16 +5,25 @@ import {
   PAN_PLAIN_FIELD,
   PAN_TOKEN_FIELD,
   PLAIN_FIELD_NAMES,
+  TEXT_PII_FIELDS,
+  TEXT_PLAIN_FIELD_NAMES,
+  TEXT_TOKEN_FIELD_NAMES,
   TOKEN_FIELD_NAMES,
   type BorrowerPlaintextPii,
   type BorrowerTokens,
   type NumericPiiField,
+  type TextPiiField,
+  normalizeEmail,
+  normalizeName,
   normalizeNumericPii,
   normalizePan,
+  validateEmail,
+  validateName,
   validateNumericPii,
   validatePan,
 } from './fields.js';
 import { decryptNumericPii, decryptPan, encryptNumericPii, encryptPan } from './ff3.js';
+import { decryptEmail, decryptName, encryptEmail, encryptName } from './text-pii.js';
 import {
   ensureBorrowerTweak,
   ensureTenantDek,
@@ -104,6 +113,34 @@ export class TokenService {
     return decryptPan(dek, tweak, token);
   }
 
+  async tokenizeTextField(
+    clientId: CanonicalTenantId,
+    borrowerId: string,
+    field: TextPiiField,
+    plaintext: string,
+  ): Promise<string> {
+    const dek = await this.getDek(clientId);
+    const tweak = await this.ensureBorrowerKeys(clientId, borrowerId);
+    if (field === 'email') {
+      return encryptEmail(dek, tweak, plaintext);
+    }
+    return encryptName(dek, tweak, plaintext);
+  }
+
+  async detokenizeTextField(
+    clientId: string,
+    borrowerId: string,
+    field: TextPiiField,
+    token: string,
+  ): Promise<string> {
+    const dek = await this.getDek(clientId as CanonicalTenantId);
+    const tweak = await this.getTweak(clientId, borrowerId);
+    if (field === 'email') {
+      return decryptEmail(dek, tweak, token);
+    }
+    return decryptName(dek, tweak, token);
+  }
+
   async tokenizeBorrowerRecord(
     clientId: CanonicalTenantId,
     borrower: Record<string, unknown>,
@@ -150,6 +187,30 @@ export class TokenService {
       delete record[PAN_PLAIN_FIELD];
     }
 
+    for (const field of TEXT_PII_FIELDS) {
+      const plainKey = TEXT_PLAIN_FIELD_NAMES[field];
+      const tokenKey = TEXT_TOKEN_FIELD_NAMES[field];
+      const raw = record[plainKey];
+      if (raw == null || raw === '') {
+        delete record[plainKey];
+        continue;
+      }
+
+      const plaintext = String(raw);
+      const isValid = field === 'email' ? validateEmail(plaintext) : validateName(plaintext);
+      if (!isValid) {
+        delete record[plainKey];
+        continue;
+      }
+
+      const token = await this.tokenizeTextField(clientId, borrowerId, field, plaintext);
+      plaintextPii[field] =
+        field === 'email' ? normalizeEmail(plaintext) : normalizeName(plaintext);
+      tokens[tokenKey as keyof BorrowerTokens] = token;
+      record[tokenKey] = token;
+      delete record[plainKey];
+    }
+
     return { record, plaintextPii, tokens };
   }
 
@@ -169,7 +230,12 @@ export class TokenService {
 
   maskConversationText(text: string, tokens: BorrowerTokens): string {
     let result = text;
-    for (const tokenKey of Object.values(TOKEN_FIELD_NAMES)) {
+    const tokenKeys = [
+      ...Object.values(TOKEN_FIELD_NAMES),
+      ...Object.values(TEXT_TOKEN_FIELD_NAMES),
+      PAN_TOKEN_FIELD,
+    ];
+    for (const tokenKey of tokenKeys) {
       const token = tokens[tokenKey as keyof BorrowerTokens];
       if (!token || !result.includes(token)) continue;
       result = result.split(token).join(this.maskToken(token));
@@ -191,6 +257,20 @@ export class TokenService {
       const plain = await this.detokenizeField(clientId, borrowerId, field, token);
       result = result.split(token).join(plain);
     }
+
+    if (tokens.panToken && result.includes(tokens.panToken)) {
+      const plain = await this.detokenizePan(clientId, borrowerId, tokens.panToken);
+      result = result.split(tokens.panToken).join(plain);
+    }
+
+    for (const field of TEXT_PII_FIELDS) {
+      const tokenKey = TEXT_TOKEN_FIELD_NAMES[field];
+      const token = tokens[tokenKey as keyof BorrowerTokens];
+      if (!token || !result.includes(token)) continue;
+      const plain = await this.detokenizeTextField(clientId, borrowerId, field, token);
+      result = result.split(token).join(plain);
+    }
+
     return result;
   }
 

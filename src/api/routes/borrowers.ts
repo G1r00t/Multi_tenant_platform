@@ -173,6 +173,26 @@ export async function registerBorrowerRoutes(app: FastifyInstance): Promise<void
         delete updates.pan;
       }
 
+      for (const field of ['email', 'fullName', 'firstName', 'lastName'] as const) {
+        if (updates[field] != null) {
+          const tokenFieldName =
+            field === 'email'
+              ? 'emailToken'
+              : field === 'fullName'
+                ? 'fullNameToken'
+                : field === 'firstName'
+                  ? 'firstNameToken'
+                  : 'lastNameToken';
+          updates[tokenFieldName] = await tokenService.tokenizeTextField(
+            clientId,
+            borrowerId,
+            field,
+            String(updates[field]),
+          );
+          delete updates[field];
+        }
+      }
+
       const db = await getTenantDb();
       await db.collection('borrowers').updateOne({ borrowerId }, { $set: updates });
       const updated = (await db.collection('borrowers').findOne({ borrowerId })) as unknown as BorrowerDoc;
