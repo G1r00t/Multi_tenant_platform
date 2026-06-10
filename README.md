@@ -2,7 +2,6 @@
 
 Secure multi-tenant debt-collection data platform — per-tenant MongoDB databases, format-preserving PII tokenization, RBAC, audit trail, and async workers.
 
-> See [DISCLAIMER.md](DISCLAIMER.md) — synthetic assessment data only.
 
 ## Quick start
 
