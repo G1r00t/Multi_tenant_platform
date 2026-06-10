@@ -59,7 +59,7 @@ curl -s http://localhost:3000/borrowers \
 
 ## Architecture
 
-See [ARCHITECTURE.docx](ARCHITECTURE.docx) (submission document)
+See [ARCHITECTURE.docx](Architecture.docx) (submission document)
 
 ## Migration tooling
 
