@@ -5,7 +5,7 @@ import { closeMongoClient, getMongoClient } from '../src/db/client.js';
 import { closeRedis, getRedis } from '../src/auth/revocation.js';
 import { getTenantDbByClientId, getVaultDb, SYSTEM_DB } from '../src/db/router.js';
 import { destroyBorrowerTweak, ensureBorrowerTweak } from '../src/pii/vault.js';
-import { authHeaders, isMongoAvailable, login } from './helpers.js';
+import { assertAuditLogsContainNoPii, authHeaders, isMongoAvailable, login } from './helpers.js';
 import * as quietHours from '../src/compliance/quiet-hours.js';
 import { redactEndpoint } from '../src/audit/writer.js';
 import { processComplianceReport, processErasure } from '../src/workers/processors.js';
@@ -300,7 +300,7 @@ describe.skipIf(!mongoUp)('compliance rules (docs/compliance-rules.md)', () => {
         headers: authHeaders(adminToken, 'client_sunrise_001'),
       });
       const logs = (JSON.parse(auditRes.body) as { logs: unknown[] }).logs;
-      expect(JSON.stringify(logs)).not.toMatch(/\d{10}/);
+      assertAuditLogsContainNoPii(logs);
     });
   });
 

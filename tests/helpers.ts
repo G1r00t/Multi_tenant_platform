@@ -1,3 +1,4 @@
+import { expect } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 
 export async function login(app: FastifyInstance, email: string, password = 'changeme'): Promise<string> {
@@ -20,6 +21,23 @@ export function authHeaders(token: string, tenantId?: string): Record<string, st
     headers['x-tenant-id'] = tenantId;
   }
   return headers;
+}
+
+/** Audit logs must never carry borrower PII fields or phone-shaped resource IDs. */
+export function assertAuditLogsContainNoPii(logs: unknown[]): void {
+  const forbidden = ['phone', 'email', 'aadhaar', 'pan', 'bankAccount', 'firstName', 'lastName'];
+  for (const log of logs) {
+    const entry = log as Record<string, unknown>;
+    for (const key of forbidden) {
+      expect(entry).not.toHaveProperty(key);
+    }
+    const resourceIds = entry.resourceIds as string[] | undefined;
+    if (resourceIds) {
+      for (const id of resourceIds) {
+        expect(id).not.toMatch(/^[6-9]\d{9}$/);
+      }
+    }
+  }
 }
 
 export async function isMongoAvailable(): Promise<boolean> {

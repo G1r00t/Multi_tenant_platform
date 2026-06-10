@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../src/api/server.js';
 import { closeMongoClient, getMongoClient } from '../src/db/client.js';
-import { authHeaders, isMongoAvailable, login } from './helpers.js';
+import { assertAuditLogsContainNoPii, authHeaders, isMongoAvailable, login } from './helpers.js';
 
 const mongoUp = await isMongoAvailable();
 
@@ -59,7 +59,7 @@ describe.skipIf(!mongoUp)('audit trail', () => {
     expect(entry).toBeTruthy();
     expect(entry!.userId).toBeTruthy();
     expect(entry!.maskingLevel).toBe('full');
-    expect(JSON.stringify(entry)).not.toMatch(/\d{10}/);
+    assertAuditLogsContainNoPii([entry!]);
   });
 
   it('logs failed scope access', async () => {

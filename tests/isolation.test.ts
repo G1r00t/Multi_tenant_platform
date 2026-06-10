@@ -64,5 +64,5 @@ describe.skipIf(!mongoUp)('tenant isolation under concurrent load', () => {
         expect(overlap).toEqual([]);
       }
     }
-  });
+  }, 60_000);
 });

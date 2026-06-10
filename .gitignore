@@ -4,6 +4,5 @@ dist/
 *.log
 docs/
 CONSTRAINTS.md
-ARCHITECTURE.md
 DISCLAIMER.md
 spec.md
